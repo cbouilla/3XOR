@@ -29,14 +29,22 @@ struct quad_context {
 };
 
 
-// void solutions_append(struct task_result_t *r, uint64_t x, uint64_t y);
+struct result_t {
+	int capacity;
+	int size;
+	uint64_t *data;
+};
+
+void solutions_init(struct result_t *r);
+void solutions_append(struct result_t *r, uint64_t x, uint64_t y);
+void solutions_finalize(struct result_t *r, int *result_size, void **result_payload);
 
 void init_quad_context(struct quad_context *ctx, int k, int l, char **filenames);
 void do_task_quad(struct quad_context *ctx, int id, int *result_size, void **result_payload);
 
-//void init_gjoux_global_context(struct gjoux_global_context *ctx, int k, int l, char **filenames);
-//void init_gjoux_worker_context(struct gjoux_worker_context *ctx, struct gjoux_global_context *glob_ctx);
-//void do_task_gjoux(struct gjoux_worker_context *ctx, struct task_result_t *result);
+void init_gjoux_global_context(struct gjoux_global_context *ctx, int k, int l, char **filenames);
+void init_gjoux_worker_context(struct gjoux_worker_context *ctx, struct gjoux_global_context *glob_ctx);
+void do_task_gjoux(struct gjoux_worker_context *wctx, int i, int *result_size, void **result_payload);
 
 #define MAX(x, y) ((x < y) ? (y) : (x))
 #define MIN(x, y) ((x < y) ? (x) : (y))

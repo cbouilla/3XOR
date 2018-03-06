@@ -35,21 +35,6 @@ static void load_hashes(int i, FILE *F, int64_t lo, int64_t hi, uint64_t *H)
 	printf("\t%c[%ld:%ld] (%.1f Mbyte)\n", 'A' + i, lo, hi, (hi - lo) / 131072.0);
 }
 
-struct result_t {
-	int capacity;
-	int size;
-	uint64_t *data;
-};
-
-void solutions_append(struct result_t *result, uint64_t x, uint64_t y)
-{
-	int64_t i = result->size++;
-	if (i >= result->capacity)
-		errx(1, "TOO MANY SOLUTIONS\n");
-	result->data[2 * i] = x;
-	result->data[2 * i + 1] = y;
-}
-
 
 void do_task_quad(struct quad_context *ctx, int id, int *result_size, void **result_payload)
 {
@@ -61,10 +46,8 @@ void do_task_quad(struct quad_context *ctx, int id, int *result_size, void **res
 	printf("task (%d, %d): \n", u, v);
 
 	struct result_t result;
-	result.data = malloc(2 * 1024 * sizeof(uint64_t));
-	result.capacity = 1024;
-	result.size = 0;
-
+	solutions_init(&result);
+	
 	double start = wtime();
 
 	/* prepare adapted indexes */
@@ -121,6 +104,5 @@ void do_task_quad(struct quad_context *ctx, int id, int *result_size, void **res
 	printf("\t --> %.1fs (%.1f cycles / pair) %ld pairs, %d solutions\n",
 		wtime() - start, (1.0 * (rdtsc() - timer)) / n_pairs, n_pairs, result.size);
 
-	*result_size = 2 * sizeof(uint64_t) * result.size;
-	*result_payload = result.data;
+	solutions_finalize(&result, result_size, result_payload);
 }

@@ -1,16 +1,28 @@
 #include <inttypes.h>
+#include <stdlib.h>
 #include <err.h>
 
 #include "tasks.h"
 
-void solutions_append(struct task_result_t *r, uint64_t x, uint64_t y)
+void solutions_init(struct result_t *r)
 {
-	int64_t i;
-	#pragma omp atomic capture
-	i = r->n++;
+	r->data = malloc(2 * 1024 * sizeof(uint64_t));
+	r->capacity = 1024;
+	r->size = 0;
+}
 
-	if (i >= TASK_RESULT_SIZE)
+
+void solutions_append(struct result_t *result, uint64_t x, uint64_t y)
+{
+	int64_t i = result->size++;
+	if (i >= result->capacity)
 		errx(1, "TOO MANY SOLUTIONS\n");
-	r->result[2 * i] = x;
-	r->result[2 * i + 1] = y;
+	result->data[2 * i] = x;
+	result->data[2 * i + 1] = y;
+}
+
+void solutions_finalize(struct result_t *result, int *result_size, void **result_payload)
+{
+	*result_size = 2 * sizeof(uint64_t) * result->size;
+	*result_payload = result->data;
 }

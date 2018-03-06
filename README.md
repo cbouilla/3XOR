@@ -1,9 +1,12 @@
-# COMPILING
+COMPILING
+=========
 
 The M4RI library must be available. "make" should compile everything.
 
 
-# CHECK THAT THE CODE IS WORKING
+CHECK THAT THE CODE IS WORKING
+==============================
+
 ### generate "good" hashes
 
 ```
@@ -29,9 +32,23 @@ tooling/bucketize --prefix-width=9 data/A data/B data/C
 client_server/quadratic --prefix-width=9 data/A data/B data/C
 ```
 
+or
+
+```
+client_server/gjoux data/A data/B data/C
+```
+
+The last one can be run in parallel (just choose the number of workers wisely):
+
+```
+OMP_PLACES=sockets client_server/gjoux --workers=2 --task-width=4 data/A data/B data/C
+```
+
 you should get the solutions voluntarily injected by `doctor_hashes`.
 
-* run the code in client-server mode
+### run the code in client-server mode
+
+NOTE: with the quadratic algorithm, the number of tasks (--N parameter of the server) is 2**(2*task_width).
 
 ```
 client_server/server --N 256 --journal-file=demo.log
@@ -41,13 +58,8 @@ client_server/quad_client --server-address=tcp://localhost:5555 --prefix-width=9
 when the client has terminated, kill the server (CTRL+C). The "demo.log" file contains the solutions.
 
 
-
-NOTE: quadratic algorithm ----> N == 2**(2*task_width)
-
-
-
-# FINDING A 3XOR FROM BITCOIN MINER SHARES FILES
-------------------------------------------------
+FINDING A 3XOR FROM BITCOIN MINER SHARES FILES
+==============================================
 
 This is a project to find large 3XORs using bitcoin miner(s). Using a [custom stratum server](https://github.com/cbouilla/3sum-pool), bitcoin miners can be used to find many preimages yielding hashes starting with 32+ zero bits.
 

@@ -60,14 +60,11 @@ void init_gjoux_worker_context(struct gjoux_worker_context *wctx, struct gjoux_g
 	wctx->C = malloc(sizeof(uint64_t) * gctx->slices_per_task * gctx->slice_height);
 }
 
-void do_task_gjoux_slice(struct gjoux_worker_context *wctx, int64_t i, int64_t hashes_available, struct task_result_t *result)
+void do_task_gjoux_slice(struct gjoux_worker_context *wctx, int64_t i, int64_t hashes_available, struct result_t *result)
 {
 	struct gjoux_global_context *ctx = wctx->global_ctx;
-	struct task_result_t local_result;
-	local_result.n = 0;
-
-	double start = wtime();
-	// uint64_t timer = rdtsc();
+	struct result_t local_result;
+	solutions_init(&local_result);
 
 	/* G2 : Compute change of basis */
 	struct matmul_table_t M, M_inv;
@@ -79,25 +76,17 @@ void do_task_gjoux_slice(struct gjoux_worker_context *wctx, int64_t i, int64_t h
 	basis_change_matrix(wctx->C, C_lo, C_hi, &M, &M_inv);
 	
 	uint64_t CM[slice_height];
-//	uint64_t otimer = rdtsc();
 
 	/* G3 : matrix multiplication */
 	matmul(ctx->H[0], wctx->HM[0], ctx->N[0], &M);
 	matmul(ctx->H[1], wctx->HM[1], ctx->N[1], &M);
 	matmul(wctx->C + C_lo, CM, slice_height, &M);
 
-//	uint64_t timer = rdtsc();
-//	printf("matmul : %.0f cycles / list element\n", 1.0 * (timer - otimer) / (ctx->N[0] + ctx->N[1] + C_hi - C_lo));
-
 	/* M1 : sort A, B according to the first k bits */
 	uint64_t *AS = radix256_sort(wctx->HM[0], wctx->scratch[0], ctx->N[0], ceil(ctx->k / 8.));
 	uint64_t *BS = radix256_sort(wctx->HM[1], wctx->scratch[1], ctx->N[1], ceil(ctx->k / 8.));
 
-//	printf("tri : %.0f cycles / list element\n", 1.0 * (rdtsc() - timer) / (ctx->N[0] + ctx->N[1]));
-
 	struct cuckoo_hash_t *H = init_cuckoo_hash(CM, 0, slice_height);
-
-//	timer = rdtsc();
 
 	/* G4 : match */
 	int64_t a = 0;
@@ -137,35 +126,30 @@ void do_task_gjoux_slice(struct gjoux_worker_context *wctx, int64_t i, int64_t h
 			break;
 		}
 	}
-//	printf("match : %.0f cycles / list element\n", 1.0 * (rdtsc() - timer) / (ctx->N[0] + ctx->N[1]));
 	free_cuckoo_hash(H);	
-	// uint64_t match_timer = rdtsc();
 
 	/* fix solutions */
-	matmul(local_result.result, local_result.result, 2 * local_result.n, &M_inv);
-	for (int64_t j = 0; j < local_result.n; j++)
-		solutions_append(result, local_result.result[2 * j], local_result.result[2 * j + 1]);
-
-	result->duration += wtime() - start;
-	result->work += ctx->N[0] + ctx->N[1];
-//	if ((i & 0xffff) == 0)
-//	printf("tid: %d, task %ld: %.1fs (%.1f cycles / list item) , %ld solutions\n", tid(), i, 
-//		wtime() - start, (1.0 * (rdtsc() - timer)) / (ctx->N[0] + ctx->N[1]), result->n);
+	matmul(local_result.data, local_result.data, 2 * local_result.size, &M_inv);
+	for (int64_t j = 0; j < local_result.size; j++)
+		solutions_append(result, local_result.data[2 * j], local_result.data[2 * j + 1]);
+	free(local_result.data);
 }
 
 
-void do_task_gjoux(struct gjoux_worker_context *wctx, struct task_result_t *result) {
-	int64_t i = result->id;
+void do_task_gjoux(struct gjoux_worker_context *wctx, int i, int *result_size, void **result_payload) 
+{
 	struct gjoux_global_context *ctx = wctx->global_ctx;
-
-	printf("Task %ld:\n", i);
 	
 	int64_t slice_lo = i * ctx->slices_per_task;
 	int64_t slice_hi = MIN(ctx->n_slices, (i + 1) * ctx->slices_per_task);
 
-	if (slice_lo >= ctx->n_slices)
+	if (slice_lo >= ctx->n_slices) {
+		*result_size = 0;
+		*result_payload = NULL;
 		return;
+	}
 	
+	printf("Task %d:\n", i);
 	printf("\tSlices [%ld:%ld]\n", slice_lo, slice_hi);
 
 	/* load required portion of C */
@@ -177,12 +161,17 @@ void do_task_gjoux(struct gjoux_worker_context *wctx, struct task_result_t *resu
 	printf("\tData load time: %.1f s (%.1f Mbyte)\n", wtime() - io_start, volume / 131072.0);
 
 	/* process the slices of C */
+	struct result_t result;
+	solutions_init(&result);
 	uint64_t timer = rdtsc();
+	double start = wtime();
 	for (int64_t j = 0; j < slice_hi - slice_lo; j++)
-		do_task_gjoux_slice(wctx, j, hashes_available, result);
+		do_task_gjoux_slice(wctx, j, hashes_available, &result);
 
-	printf("\t--> %.1fs (%.1f cycles / list item), %ld solutions\n",
-		result->duration, 
+	printf("\t--> %.1fs (%.1f cycles / list item), %d solutions\n",
+		wtime() - start, 
 		(1.0 * (rdtsc() - timer)) / (ctx->N[0] + ctx->N[1]) / ctx->slices_per_task, 
-		result->n);
+		result.size);
+
+	solutions_finalize(&result, result_size, result_payload);
 }
