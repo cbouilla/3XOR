@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
   	}
-	if (prefix_width < 0 || argc < 3) {
+	if (prefix_width < 0 || argc - optind < 3) {
 		printf("USAGE: %s --prefix-width=WIDTH [--task-width=WIDTH] A.hash B.hash C.hash\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}

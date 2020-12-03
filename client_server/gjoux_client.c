@@ -20,9 +20,8 @@ int main(int argc, char **argv)
 	struct option longopts[4] = {
 		{"server-address", required_argument, NULL, 'a'},
 		/** work-specific options **/
-		{"join-width", required_argument, NULL, 'j'},
-		{"task-width", required_argument, NULL, 'l'},
-		{"workers", required_argument, NULL, 'w'},
+		{"prefix-width", required_argument, NULL, 'p'},
+		{"task-width", required_argument, NULL, 't'},
 		{NULL, 0, NULL, 0}
 	};
 	char *server_address = NULL;
@@ -34,11 +33,14 @@ int main(int argc, char **argv)
 		case 'a':
 			server_address = optarg;
 			break;
-		case 'p':
-			prefix_width = atoi(optarg);
+		case 'j':
+			join_width = atoi(optarg);
 			break;
-		case 't':
+		case 'l':
 			task_width = atoi(optarg);
+			break;
+		case 'w':
+			nworkers = atoi(optarg);
 			break;
 		default:
 			errx(1, "Unknown option\n");
